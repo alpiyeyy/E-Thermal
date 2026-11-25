@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E-Thermal — Monitoring Thermal Tower</title>
+  <link rel="icon" type="image/png" href="logo-tonasa.png">
+
+  <!-- Font modern: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Ikon modern (Remix Icon) -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet">
+
+  <!-- Library Grafik (Chart.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Library Baca File Excel (.xlsx / .xls) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Library Database Online (Supabase) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Hubungkan ke file desain CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Halaman Login & Lupa Kata Sandi -->
+  <div class="auth-screen" id="authScreen">
+    <div class="auth-wrapper">
+      <div class="auth-top">
+        <img src="logo-tonasa.png" alt="Logo Semen Tonasa" class="auth-logo-img">
+        <h1 class="auth-title">E-Thermal</h1>
+        <p class="auth-subtitle">Sistem Monitoring Thermal Tower — Unit Distribusi Daya</p>
+      </div>
+
+      <div class="auth-card">
+        <h2 class="auth-card-title" id="authCardTitle">Masuk ke Sistem</h2>
+        <div class="auth-msg" id="authMsg"></div>
+
+        <!-- Form Login -->
+        <form id="loginForm">
+          <div class="form-group">
+            <label class="label-upper">EMAIL / USERNAME</label>
+            <input type="text" id="loginEmail" placeholder="Masukkan email atau username" required>
+          </div>
+          <div class="form-group">
+            <label class="label-upper">PASSWORD</label>
+            <div class="password-wrapper">
+              <input type="password" id="loginPassword" placeholder="Masukkan password" required>
+              <button type="button" class="toggle-password" onclick="togglePassword('loginPassword', this)">
+                <i class="ri-eye-line"></i>
+              </button>
+            </div>
+          </div>
+          <div style="text-align: right; margin-top: -8px; margin-bottom: 16px;">
+            <a href="#" onclick="tampilkanFormLupa(true); return false;" style="font-size: 12px; color: #2563eb; text-decoration: none; font-weight: 500;">
+              Lupa Kata Sandi?
+            </a>
+          </div>
+          <button type="submit" class="btn btn-primary auth-submit">Masuk &rarr;</button>
+        </form>
+
+        <!-- Form Lupa Kata Sandi (Tanpa Verifikasi) -->
+        <form id="forgotForm" style="display: none;">
+          <div class="form-group">
+            <label class="label-upper">KATA SANDI BARU</label>
+            <div class="password-wrapper">
+              <input type="password" id="forgotNewPass" placeholder="Minimal 6 karakter" minlength="6" required>
+              <button type="button" class="toggle-password" onclick="togglePassword('forgotNewPass', this)">
+                <i class="ri-eye-line"></i>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="label-upper">KONFIRMASI KATA SANDI BARU</label>
+            <div class="password-wrapper">
+              <input type="password" id="forgotConfirmPass" placeholder="Ulangi kata sandi baru" minlength="6" required>
+              <button type="button" class="toggle-password" onclick="togglePassword('forgotConfirmPass', this)">
+                <i class="ri-eye-line"></i>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary auth-submit">Reset Kata Sandi &rarr;</button>
+          <p class="auth-switch-text">
+            Ingat kata sandi? <a href="#" onclick="tampilkanFormLupa(false); return false;">Kembali ke Masuk</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Utama -->
+  <div class="app-layout" id="appLayout" style="display: none;">
+    <!-- Menu Samping -->
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="logo-tonasa.png" alt="Logo Semen Tonasa" class="sidebar-logo-img">
+        <span>E-Thermal</span>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item nav-btn active" data-page="dashboard" onclick="pindahHalaman('dashboard')">
+          <i class="ri-dashboard-line"></i> Dashboard
+        </button>
+        <button class="nav-item nav-btn" data-page="grafik" onclick="pindahHalaman('grafik')">
+          <i class="ri-bar-chart-box-line"></i> Grafik Fasa
+        </button>
+        <button class="nav-item nav-btn" data-page="master" onclick="pindahHalaman('master')">
+          <i class="ri-database-2-line"></i> Data Master
+        </button>
+        <button class="nav-item nav-btn" data-page="inspeksi" onclick="pindahHalaman('inspeksi')">
+          <i class="ri-table-line"></i> Data Inspeksi
+        </button>
+        <button class="nav-item nav-btn" data-page="input" onclick="bukaHalamanInput()">
+          <i class="ri-add-circle-line"></i> Input Data Baru
+        </button>
+        <button class="nav-item nav-btn" data-page="password" onclick="pindahHalaman('password')">
+          <i class="ri-lock-password-line"></i> Ubah Kata Sandi
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-avatar" id="userAvatar">UD</div>
+        <div class="user-info">
+          <strong id="userName">Unit Distribusi Daya</strong>
+          <span id="userEmail">alpiyeyy@gmail.com</span>
+        </div>
+        <button class="logout-btn" title="Keluar" onclick="logout()">
+          <i class="ri-logout-box-r-line"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Konten Utama -->
+    <main class="main-content">
+      <!-- Baris Atas -->
+      <header class="topbar">
+        <div class="breadcrumb">
+          <strong>E-Thermal</strong> <span id="breadcrumbCurrent">/ Dashboard</span>
+        </div>
+        <div class="search-box" id="topbarSearch">
+          <i class="ri-search-line"></i>
+          <input type="text" id="searchInput" placeholder="Cari lokasi tower atau rekomendasi...">
+        </div>
+      </header>
+
+      <!-- Header & Tombol Aksi (Tampil di Dashboard) -->
+      <section class="page-header" id="ringkasan">
+        <div>
+          <h1>Monitoring Temperatur Tower</h1>
+          <p class="subtitle">Evaluasi ambang batas berdasarkan standar Thermovision PLN &amp; PUIL 2011</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="exportCSV()">
+            <i class="ri-file-excel-2-line"></i> Export CSV
+          </button>
+          <button class="btn btn-outline" onclick="bukaModalCetak()">
+            <i class="ri-printer-line"></i> Cetak Report
+          </button>
+          <button class="btn btn-primary" onclick="bukaHalamanInput()">
+            <i class="ri-add-line"></i> Tambah Inspeksi
+          </button>
+        </div>
+      </section>
+
+      <!-- 4 Kartu Ringkasan Pastel -->
+      <section class="kpi-grid" id="kpiSection">
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-icon"><i class="ri-broadcast-line"></i></div>
+          <div>
+            <div class="kpi-value" id="totalInspeksi">0</div>
+            <div class="kpi-label">Total Tower Diinspeksi</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon"><i class="ri-checkbox-circle-line"></i></div>
+          <div>
+            <div class="kpi-value" id="totalKondisi1">0</div>
+            <div class="kpi-label">Kondisi I (&Delta;T &le; 5&deg;C)</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-yellow">
+          <div class="kpi-icon"><i class="ri-error-warning-line"></i></div>
+          <div>
+            <div class="kpi-value" id="totalKondisi2">0</div>
+            <div class="kpi-label">Kondisi II (5&deg;C &lt; &Delta;T &le; 30&deg;C)</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-icon"><i class="ri-alarm-warning-line"></i></div>
+          <div>
+            <div class="kpi-value" id="totalKondisi3">0</div>
+            <div class="kpi-label">Kondisi III (&Delta;T &gt; 30&deg;C)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Area Grafik -->
+      <section class="panel-card" id="grafik">
+        <div class="panel-header">
+          <h2 id="judulGrafik">Perbandingan Suhu Fasa R, S, dan T (&deg;C)</h2>
+          <div class="chart-controls">
+            <select id="filterFasaGrafik">
+              <option value="all">Semua Fasa (R, S, T)</option>
+              <option value="r">Fasa R Saja</option>
+              <option value="s">Fasa S Saja</option>
+              <option value="t">Fasa T Saja</option>
+            </select>
+            <div class="date-filter-wrap">
+              <input type="date" id="filterRentangGrafik" title="Pilih tanggal inspeksi">
+              <button type="button" class="btn-clear-date" onclick="resetFilterTanggalGrafik()" title="Tampilkan semua tanggal">
+                <i class="ri-close-line"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="thermalChart"></canvas>
+        </div>
+      </section>
+
+      <!-- Tabel Data Inspeksi -->
+      <section class="panel-card" id="tabel-data">
+        <div class="panel-header">
+          <h2>Riwayat Inspeksi Thermal</h2>
+          <div class="filter-group">
+            <select id="filterKondisi">
+              <option value="all">Semua Kondisi</option>
+              <option value="Kondisi I">Kondisi I (Rutin)</option>
+              <option value="Kondisi II">Kondisi II (Jadwalkan)</option>
+              <option value="Kondisi III">Kondisi III (Secepatnya)</option>
+            </select>
+            <div class="date-filter-wrap">
+              <input type="date" id="filterWaktuTabel" title="Pilih tanggal inspeksi">
+              <button type="button" class="btn-clear-date" onclick="resetFilterTanggal()" title="Tampilkan semua tanggal">
+                <i class="ri-close-line"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Lokasi &amp; Waktu</th>
+                <th>Foto Thermal</th>
+                <th>Fasa R</th>
+                <th>Fasa S</th>
+                <th>Fasa T</th>
+                <th>&Delta;T</th>
+                <th>Kondisi</th>
+                <th>Rekomendasi Tindakan</th>
+                <th class="no-print">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- HALAMAN PENUH: INPUT / EDIT DATA INSPEKSI -->
+      <section class="panel-card hidden-view" id="pageInput" style="max-width: 760px;">
+        <div class="panel-header" style="margin-bottom: 20px;">
+          <h2 id="modalInputTitle">Tambah Data Inspeksi Thermal</h2>
+        </div>
+        <form id="inspeksiForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Lokasi</label>
+              <input type="text" id="inputLokasi" list="listLokasi" autocomplete="off" required>
+              <datalist id="listLokasi"></datalist>
+            </div>
+            <div class="form-group">
+              <label>Peralatan</label>
+              <input type="text" id="inputPeralatan" list="listPeralatan" autocomplete="off" required>
+              <datalist id="listPeralatan"></datalist>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Titik Ukur</label>
+              <input type="text" id="inputTitikUkur" list="listTitikUkur" autocomplete="off" required>
+              <datalist id="listTitikUkur"></datalist>
+            </div>
+            <div class="form-group">
+              <label>Waktu Inspeksi</label>
+              <input type="datetime-local" id="inputWaktu" required>
+            </div>
+          </div>
+          <div class="form-row three-col">
+            <div class="form-group">
+              <label>Suhu Fasa R (&deg;C)</label>
+              <input type="number" step="0.1" id="inputR" required>
+            </div>
+            <div class="form-group">
+              <label>Suhu Fasa S (&deg;C)</label>
+              <input type="number" step="0.1" id="inputS" required>
+            </div>
+            <div class="form-group">
+              <label>Suhu Fasa T (&deg;C)</label>
+              <input type="number" step="0.1" id="inputT" required>
+            </div>
+          </div>
+
+          <div class="auto-calc-box" id="previewCalc">
+            <div>
+              <span class="calc-label">Hasil Otomatis &Delta;T:</span>
+              <strong id="previewDeltaT">- &deg;C</strong>
+            </div>
+            <div id="previewStatus" class="status-preview">Isi suhu R, S, dan T untuk melihat status</div>
+          </div>
+
+          <div class="form-group">
+            <label>Upload Foto Thermal (SATIR)</label>
+            <input type="file" id="inputFoto" accept="image/*">
+          </div>
+
+          <div class="modal-footer" style="margin-top: 20px;">
+            <button type="button" class="btn btn-outline" onclick="pindahHalaman('dashboard')">Batal</button>
+            <button type="submit" class="btn btn-primary">Simpan Data</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- HALAMAN PENUH: DATA MASTER (EXCEL & MANUAL) -->
+      <section class="panel-card hidden-view" id="pageMaster" style="max-width: 860px;">
+        <div class="panel-header" style="margin-bottom: 18px;">
+          <h2>Data Master (Lokasi, Peralatan &amp; Titik Ukur)</h2>
+          <span id="jumlahMaster" style="font-size: 13px; color: #2563eb; font-weight: 600;">0 data</span>
+        </div>
+
+        <!-- Opsi 1: Import Excel -->
+        <div class="form-group" style="background: #f8fafc; padding: 14px 16px; border-radius: 10px; border: 1px dashed #cbd5e1; margin-bottom: 16px;">
+          <label style="font-size: 13px; color: #334155; font-weight: 600; margin-bottom: 6px; display: block;">
+            1. Upload File Excel Rekap (.xlsx / .xls)
+          </label>
+          <input type="file" id="importExcelMaster" accept=".xlsx, .xls">
+          <p style="font-size: 12px; color: #64748b; margin-top: 6px;">
+            Pastikan Excel memiliki kolom header: <strong>Lokasi</strong>, <strong>Peralatan</strong>, dan <strong>Titik Ukur</strong>.
+          </p>
+        </div>
+
+        <!-- Opsi 2: Input Manual -->
+        <form id="manualMasterForm" style="background: #f8fafc; padding: 14px 16px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+          <label style="font-size: 13px; color: #334155; font-weight: 600; margin-bottom: 10px; display: block;">
+            2. Atau Tambah Manual
+          </label>
+          <div class="form-row three-col" style="margin-bottom: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 12px;">Lokasi</label>
+              <input type="text" id="manualLokasi" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 12px;">Peralatan</label>
+              <input type="text" id="manualPeralatan" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 12px;">Titik Ukur</label>
+              <input type="text" id="manualTitikUkur" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="padding: 9px 16px; font-size: 13px;">
+            <i class="ri-add-line"></i> Tambah ke Daftar Master
+          </button>
+        </form>
+
+        <!-- Tabel Daftar Master -->
+        <div class="master-table-wrap" style="max-height: 360px;">
+          <table class="master-table">
+            <thead>
+              <tr>
+                <th>Lokasi</th>
+                <th>Peralatan</th>
+                <th>Titik Ukur</th>
+                <th style="width: 60px; text-align: center;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="masterTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- HALAMAN PENUH: UBAH KATA SANDI -->
+      <section class="panel-card hidden-view" id="pagePassword" style="max-width: 480px;">
+        <div class="panel-header" style="margin-bottom: 18px;">
+          <h2>Ubah Kata Sandi</h2>
+        </div>
+        <div class="auth-msg" id="passMsg"></div>
+        <form id="changePasswordForm">
+          <div class="form-group">
+            <label>Kata Sandi Lama</label>
+            <div class="password-wrapper">
+              <input type="password" id="oldPassword" placeholder="Masukkan kata sandi saat ini" required>
+              <button type="button" class="toggle-password" onclick="togglePassword('oldPassword', this)">
+                <i class="ri-eye-line"></i>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Kata Sandi Baru</label>
+            <div class="password-wrapper">
+              <input type="password" id="newPassword" placeholder="Minimal 6 karakter" minlength="6" required>
+              <button type="button" class="toggle-password" onclick="togglePassword('newPassword', this)">
+                <i class="ri-eye-line"></i>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Konfirmasi Kata Sandi Baru</label>
+            <div class="password-wrapper">
+              <input type="password" id="confirmNewPassword" placeholder="Ulangi kata sandi baru" minlength="6" required>
+              <button type="button" class="toggle-password" onclick="togglePassword('confirmNewPassword', this)">
+                <i class="ri-eye-line"></i>
+              </button>
+            </div>
+          </div>
+          <div class="modal-footer" style="margin-top: 20px;">
+            <button type="button" class="btn btn-outline" onclick="pindahHalaman('dashboard')">Batal</button>
+            <button type="submit" class="btn btn-primary">Simpan Sandi</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <!-- Pop-up Pengaturan Cetak Report -->
+  <div class="modal-overlay" id="printModal">
+    <div class="modal-box" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3>Pengaturan Cetak Report</h3>
+        <button class="close-btn" onclick="tutupModalCetak()"><i class="ri-close-line"></i></button>
+      </div>
+
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">
+        Pilih bagian (section) yang ingin ditampilkan pada hasil cetak:
+      </p>
+
+      <div class="print-options">
+        <label class="print-check">
+          <input type="checkbox" id="chkPrintKPI" checked>
+          <span>Ringkasan KPI (Total &amp; Status Kondisi)</span>
+        </label>
+        <label class="print-check">
+          <input type="checkbox" id="chkPrintGrafik" checked>
+          <span>Grafik Suhu Fasa</span>
+        </label>
+        <label class="print-check">
+          <input type="checkbox" id="chkPrintTabel" checked>
+          <span>Tabel Riwayat Inspeksi Thermal</span>
+        </label>
+      </div>
+
+      <p style="font-size: 11px; color: #64748b; background: #f8fafc; padding: 10px; border-radius: 8px; margin-top: 14px;">
+        <strong>Tips:</strong> Jika ingin mencetak lokasi atau kondisi tertentu saja, saring terlebih dahulu lewat kotak pencarian atau filter kondisi di dashboard sebelum menekan cetak.
+      </p>
+
+      <div class="modal-footer" style="margin-top: 16px;">
+        <button type="button" class="btn btn-outline" onclick="tutupModalCetak()">Batal</button>
+        <button type="button" class="btn btn-primary" onclick="eksekusiCetak()">
+          <i class="ri-printer-line"></i> Cetak Sekarang
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop-up Perbesar Foto Thermal -->
+  <div class="modal-overlay" id="photoModal" onclick="tutupModalFoto()">
+    <div class="photo-modal-box" onclick="event.stopPropagation()">
+      <button class="close-btn photo-close" onclick="tutupModalFoto()"><i class="ri-close-line"></i></button>
+      <img id="enlargedPhoto" src="" alt="Foto Thermal">
+      <p id="photoCaption"></p>
+    </div>
+  </div>
+
+  <!-- Hubungkan ke file logika JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>
